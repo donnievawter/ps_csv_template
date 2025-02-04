@@ -34,7 +34,18 @@ try {
         await outputFolder.renameEntry(newFile, newname, { overwrite: true });
         return newFile;
     }
-
+    const fixTextLayers = (element, layers) => {
+        const textLayers = layers.filter(layer => layer.kind === constants.LayerKind.TEXT);
+        console.log(textLayers);
+        //replace the text
+        for (let j = 0; j < textLayers.length; j++) {
+            const textLayer = textLayers[j];
+            const text = element[textLayer.name];
+            if (text) {
+                textLayer.textItem.contents = text;
+            }
+        }
+    }
 
     async function process() {
         core.executeAsModal(async () => {
@@ -44,7 +55,7 @@ try {
                 for (let i = 0; i < data.length; i++) {
                     const element = data[i];
                     const newFile = await copyToFolder(element);
-                 //copy the template to the output folder
+                    //copy the template to the output folder
                     //open the file
                     const openedDocument = await app.open(newFile);
                     //  console.log(openedDocument);
@@ -54,16 +65,8 @@ try {
                     //get the layers
                     const layers = openedDocument.layers;
                     //get the text layers
-                    const textLayers = layers.filter(layer => layer.kind === constants.LayerKind.TEXT);
-                    console.log(textLayers);
-                    //replace the text
-                    for (let j = 0; j < textLayers.length; j++) {
-                        const textLayer = textLayers[j];
-                        const text = element[textLayer.name];
-                        if (text) {
-                            textLayer.textItem.contents = text;
-                        }
-                    }
+
+                    fixTextLayers(element, layers);
                     //get the image layers
                     const imageLayers = layers.filter(layer => (layer.kind === constants.LayerKind.SMARTOBJECT) || (layer.kind === constants.LayerKind.NORMAL));
                     console.log(imageLayers);
