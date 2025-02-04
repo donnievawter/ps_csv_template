@@ -6,6 +6,86 @@ try {
     const fs2 = require("uxp").storage.localFileSystem;
     let headers, inputFolder, outputFolder, template, csvfile, data; // Function to open a PSD file programmatically
     let suffix = "";
+    function setupListeners() {
+
+        document.getElementById("process").addEventListener("click", async () => {
+            try {
+                suffix = document.getElementById("suffix").value;
+                if (template && csvfile && outputFolder && data && inputFolder) {
+                    await process();
+                } else {
+                    core.showAlert("Please select all files, folders");
+                }
+
+
+            } catch (error) {
+                console.error("Error opening file:", error);
+            };
+        });
+        document.getElementById("loadtemplate").addEventListener("click", async () => {
+            try {
+                await core.executeAsModal(async () => {  // Open a file given entry
+                    template = await fs2.getFileForOpening();
+
+
+
+                    document.getElementById("templatename").textContent = ` Template: ${template.name} `;
+                    document.getElementById("templatename").style.display = "block";
+                }, {});
+            } catch (error) {
+                console.error("Error opening file:", error);
+            };
+        });
+        document.getElementById("chooseoutput").addEventListener("click", async () => {
+            try {
+                await core.executeAsModal(async () => {  // Open a file given entry
+                    outputFolder = await fs2.getFolder();
+                    console.log(outputFolder);
+                    document.getElementById("outputname").textContent = ` outputFolder: ${outputFolder.name} path: ${outputFolder.nativePath}`;
+                    document.getElementById("outputname").style.display = "block";
+                }, {});
+            } catch (error) {
+                console.error("Error opening file:", error);
+            };
+
+
+        });
+        document.getElementById("chooseinput").addEventListener("click", async () => {
+            try {
+                await core.executeAsModal(async () => {  // Open a file given entry
+                    inputFolder = await fs2.getFolder();
+                    console.log(inputFolder);
+                    document.getElementById("inputname").textContent = ` inputFolder: ${inputFolder.name} path: ${inputFolder.nativePath}`;
+                    document.getElementById("inputname").style.display = "block";
+                }, {});
+            } catch (error) {
+                console.error("Error opening file:", error);
+            };
+
+
+        });
+        document.getElementById("loadcsv").addEventListener("click", async () => {
+            console.log("button clicked");
+            try {
+                await core.executeAsModal(async () => {  // Open a file given entry
+
+                    // Get the object of a File instance
+                    csvfile = await fs2.getFileForOpening();
+                    console.log(csvfile);
+                    document.getElementById("csvname").textContent = ` CSVFile: ${csvfile.name} `;
+                    document.getElementById("csvname").style.display = "block";
+                    const text = await csvfile.read({ encoding: "utf-8" });
+                    console.log(text);
+                    data = parseCSV(text);
+                    console.log(data);
+
+                }, {});
+            } catch (error) {
+                console.error("Error opening file:", error);
+            };
+
+        });
+    }
     const destroyVars = () => {
         headers = null;
         inputFolder = null;
@@ -46,12 +126,10 @@ try {
             }
         }
     }
-
     async function process() {
         core.executeAsModal(async () => {
             try {
                 console.log("Processing");
-
                 for (let i = 0; i < data.length; i++) {
                     const element = data[i];
                     const newFile = await copyToFolder(element);
@@ -102,11 +180,6 @@ try {
                                     break;
                                 }
                             }
-                            // console.log(`image layer name is ${imageLayer.name} and index is ${index}`);
-                            //  console.log(centerX, centerY, b);
-                            //   console.log(`The new left is ${centerX - b.width / 2} and the new top is ${centerY - b.height / 2}`);
-                            //    console.log(openedDocument.layers.getByName("replacement").bounds);
-                            // await openedDocument.layers.getByName("replacement").translate(centerX - b.width / 2, centerY - b.height / 2);
                             app.activeDocument = openedDocument;
                             await action.batchPlay(
                                 [
@@ -131,11 +204,6 @@ try {
                     await openedDocument.save();
                     //close the file
                     await openedDocument.close();
-
-
-
-
-
                 }
                 app.showAlert(`Processing complete: ${data.length} files processed,  outputFolder: ${outputFolder.name}`);
                 destroyVars();
@@ -145,9 +213,6 @@ try {
             }
         }, {});
     }
-
-
-
     // Function to parse a CSV file content
     function parseCSV(content) {
         const lines = content.split('\n');
@@ -193,10 +258,6 @@ try {
         return result;
     }
 
-
-
-
-
     async function openDocument(filePath) {
         try {
             core.executeAsModal(async () => {
@@ -211,84 +272,7 @@ try {
             console.error("Error opening document:", error);
         }
     }
-    document.getElementById("process").addEventListener("click", async () => {
-        try {
-            suffix = document.getElementById("suffix").value;
-            if (template && csvfile && outputFolder && data && inputFolder) {
-                await process();
-            } else {
-                core.showAlert("Please select all files, folders");
-            }
-
-
-        } catch (error) {
-            console.error("Error opening file:", error);
-        };
-    });
-    document.getElementById("loadtemplate").addEventListener("click", async () => {
-        try {
-            await core.executeAsModal(async () => {  // Open a file given entry
-                template = await fs2.getFileForOpening();
-
-
-
-                document.getElementById("templatename").textContent = ` Template: ${template.name} `;
-                document.getElementById("templatename").style.display = "block";
-            }, {});
-        } catch (error) {
-            console.error("Error opening file:", error);
-        };
-    });
-    document.getElementById("chooseoutput").addEventListener("click", async () => {
-        try {
-            await core.executeAsModal(async () => {  // Open a file given entry
-                outputFolder = await fs2.getFolder();
-                console.log(outputFolder);
-                document.getElementById("outputname").textContent = ` outputFolder: ${outputFolder.name} path: ${outputFolder.nativePath}`;
-                document.getElementById("outputname").style.display = "block";
-            }, {});
-        } catch (error) {
-            console.error("Error opening file:", error);
-        };
-
-
-    });
-    document.getElementById("chooseinput").addEventListener("click", async () => {
-        try {
-            await core.executeAsModal(async () => {  // Open a file given entry
-                inputFolder = await fs2.getFolder();
-                console.log(inputFolder);
-                document.getElementById("inputname").textContent = ` inputFolder: ${inputFolder.name} path: ${inputFolder.nativePath}`;
-                document.getElementById("inputname").style.display = "block";
-            }, {});
-        } catch (error) {
-            console.error("Error opening file:", error);
-        };
-
-
-    });
-    document.getElementById("loadcsv").addEventListener("click", async () => {
-        console.log("button clicked");
-        try {
-            await core.executeAsModal(async () => {  // Open a file given entry
-
-                // Get the object of a File instance
-                csvfile = await fs2.getFileForOpening();
-                console.log(csvfile);
-                document.getElementById("csvname").textContent = ` CSVFile: ${csvfile.name} `;
-                document.getElementById("csvname").style.display = "block";
-                const text = await csvfile.read({ encoding: "utf-8" });
-                console.log(text);
-                data = parseCSV(text);
-                console.log(data);
-
-            }, {});
-        } catch (error) {
-            console.error("Error opening file:", error);
-        };
-
-    });
-
+    setupListeners();
 } catch (error) {
     console.error("Error in main.js:", error);
 }
