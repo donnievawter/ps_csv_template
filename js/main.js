@@ -17,7 +17,7 @@ try {
         document.getElementById("outputname").style.display = "none";
         document.getElementById("csvname").style.display = "none";
         document.getElementById("inputname").style.display = "none";
-         document.getElementById("suffix").value = "";
+        document.getElementById("suffix").value = "";
     }
 
     async function process() {
@@ -102,72 +102,18 @@ try {
                             app.activeDocument = openedDocument;
                             await action.batchPlay(
                                 [
-                                    {
-                                        "_obj": "select",
-                                        "_target": [
-                                            {
-                                                "_name": "replacement",
-                                                "_ref": "layer"
-                                            }
-                                        ],
-
-
-                                        "makeVisible": false
-                                    },
-                                    {
-                                        "_obj": "move",
-                                        "_target": [
-                                            {
-                                                "_enum": "ordinal",
-                                                "_ref": "layer"
-                                            }
-                                        ],
-                                        "to": {
-                                            "_obj": "offset",
-                                            "horizontal": {
-                                                "_unit": "pixelsUnit",
-                                                "_value": centerX - b.width / 2
-                                            },
-                                            "vertical": {
-                                                "_unit": "pixelsUnit",
-                                                "_value": centerY - b.height / 2
-                                            }
-                                        }
-                                    },
-
+                                    { "_obj": "select", "_target": [{ "_name": "replacement", "_ref": "layer" }], "makeVisible": false },
+                                    { "_obj": "move", "_target": [{ "_enum": "ordinal", "_ref": "layer" }], "to": { "_obj": "offset", "horizontal": { "_unit": "pixelsUnit", "_value": centerX - b.width / 2 }, "vertical": { "_unit": "pixelsUnit", "_value": centerY - b.height / 2 } } }
                                 ], {});
                             await action.batchPlay(
                                 [
-                                    {
-                                        "_obj": "select",
-                                        "_target": [
-                                            {
-                                                "_name": imageLayer.name,
-                                                "_ref": "layer"
-                                            }
-                                        ],
-                                        "makeVisible": false
-                                    },
-                                    {
-                                        "_obj": "duplicate",
-                                        "_target": [
-                                            {
-                                                "_ref": "layerEffects"
-                                            },
-                                            {
-                                                "_enum": "ordinal",
-                                                "_ref": "layer"
-                                            }
-                                        ],
-                                        "to": {
-                                            "_index": index,
-                                            "_ref": "layer"
-                                        }
-                                    }], {});
-                            const theName=imageLayer.name;
+                                    { "_obj": "select", "_target": [{ "_name": imageLayer.name, "_ref": "layer" }], "makeVisible": false },
+                                    { "_obj": "duplicate", "_target": [{ "_ref": "layerEffects" }, { "_enum": "ordinal", "_ref": "layer" }], "to": { "_index": index, "_ref": "layer" } }
+                                ], {});
+                            const theName = imageLayer.name;
                             imageLayer.delete();
                             openedDocument.layers.getByName("replacement").name = theName;
-                             openedDocument.layers.getByName(theName).move(openedDocument.layers[0], constants.ElementPlacement.PLACEBEFORE);
+                            openedDocument.layers.getByName(theName).move(openedDocument.layers[0], constants.ElementPlacement.PLACEBEFORE);
                             imageDoc.closeWithoutSaving();
 
                         }
@@ -332,7 +278,7 @@ try {
         } catch (error) {
             console.error("Error opening file:", error);
         };
-      
+
     });
 
 } catch (error) {
