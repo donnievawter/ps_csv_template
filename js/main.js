@@ -129,6 +129,7 @@ try {
     async function process() {
         core.executeAsModal(async () => {
             try {
+                let inititalOrder = [];
                 console.log("Processing");
                 for (let i = 0; i < data.length; i++) {
                     const element = data[i];
@@ -143,6 +144,11 @@ try {
                     //get the layers
                     const layers = openedDocument.layers;
                     //get the text layers
+                    console.log('At Start');
+                    for (let k = 0; k < openedDocument.layers.length; k++) {
+                        //  console.log(`layer name is ${openedDocument.layers[k].name} and k is ${k} and length is ${openedDocument.layers.length}`);
+                        inititalOrder.push(openedDocument.layers[k].name);
+                    }
 
                     fixTextLayers(element, layers);
                     //get the image layers
@@ -169,6 +175,9 @@ try {
                             }
                             await imageDoc.resizeImage(width, height);
                             await imageDoc.layers[0].duplicate(openedDocument, constants.ElementPlacement.PLACEATEND, "replacement");
+
+
+
                             const centerX = (imageLayer.bounds.left + imageLayer.bounds.right) / 2;
                             const centerY = (imageLayer.bounds.top + imageLayer.bounds.bottom) / 2;
                             const b = openedDocument.layers.getByName("replacement").bounds;
@@ -180,9 +189,12 @@ try {
                                     break;
                                 }
                             }
+
                             app.activeDocument = openedDocument;
                             await action.batchPlay(
                                 [
+
+                                  
                                     { "_obj": "select", "_target": [{ "_name": "replacement", "_ref": "layer" }], "makeVisible": false },
                                     { "_obj": "move", "_target": [{ "_enum": "ordinal", "_ref": "layer" }], "to": { "_obj": "offset", "horizontal": { "_unit": "pixelsUnit", "_value": centerX - b.width / 2 }, "vertical": { "_unit": "pixelsUnit", "_value": centerY - b.height / 2 } } }
                                 ], {});
@@ -191,15 +203,49 @@ try {
                                     { "_obj": "select", "_target": [{ "_name": imageLayer.name, "_ref": "layer" }], "makeVisible": false },
                                     { "_obj": "duplicate", "_target": [{ "_ref": "layerEffects" }, { "_enum": "ordinal", "_ref": "layer" }], "to": { "_index": index, "_ref": "layer" } }
                                 ], {});
+
                             const theName = imageLayer.name;
+                            openedDocument.layers.getByName("replacement").move(imageLayer, constants.ElementPlacement.PLACEBEFORE);
+                            if (imageLayer.isClippingMask) {
+                                //  openedDocument.layers.getByName("replacement").isClippingMask = true;
+                                await action.batchPlay(
+                                    [
+                                      {
+                                        "_obj": "select",
+                                        "_target": [
+                                            {
+                                                "_ref": "layer",
+                                                "_name": "replacement"
+                                            }
+                                        ]
+                                    },
+                                        { "_obj": "groupEvent", "_target": [{ "_enum": "ordinal", "_ref": "layer" }] }
+                                    ], {});
+
+                            }
+                            //copy any layer mask
+                            await action.batchPlay(
+                                [
+                                    { "_obj": "make", "at": { "_ref": [{ "_enum": "channel", "_ref": "channel", "_value": "mask" }, { "_name": "replacement", "_ref": "layer" }] }, "duplicate": true, "new": { "_class": "channel" }, "using": { "_ref": [{ "_enum": "channel", "_ref": "channel", "_value": "mask" }, { "_name": imageLayer.name, "_ref": "layer" }] } }
+                                ], {});
+
                             imageLayer.delete();
                             openedDocument.layers.getByName("replacement").name = theName;
-                            openedDocument.layers.getByName(theName).move(openedDocument.layers[0], constants.ElementPlacement.PLACEBEFORE);
+                            //  openedDocument.layers.getByName(theName).move(openedDocument.layers[0], constants.ElementPlacement.PLACEBEFORE);
                             imageDoc.closeWithoutSaving();
 
                         }
                     }
+                    //make sure the layers are in the same order
+                    openedDocument.layers.getByName(inititalOrder[0]).move(openedDocument.layers[0], constants.ElementPlacement.PLACEBEFORE);
+                    let refLayer = openedDocument.layers.getByName(inititalOrder[0]);
+                    for (let k = 1; k < inititalOrder.length; k++) {
+                        console.log(`Moving ${openedDocument.layers.getByName(inititalOrder[k])} below ${refLayer}`);
+                        openedDocument.layers.getByName(inititalOrder[k]).move(refLayer, constants.ElementPlacement.PLACEAFTER);
+                        refLayer = openedDocument.layers.getByName(inititalOrder[k]);
+                    }
 
+                    inititalOrder = [];
                     //save the file
                     await openedDocument.save();
                     //close the file
