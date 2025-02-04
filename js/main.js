@@ -19,27 +19,32 @@ try {
         document.getElementById("inputname").style.display = "none";
         document.getElementById("suffix").value = "";
     }
+    async function copyToFolder(element) {
+        await template.copyTo(outputFolder, { overwrite: true });
+        //renamethe file
+        const newFile = await outputFolder.getEntry(template.name);
+        let newname;
+        if (element['filename']) {
+            newname = `${element["filename"]}${suffix}.psd`;
+        } else {
+            newname = `${element[headers[0]]}${suffix}.psd`;
+        }
+        //stripping out illegal characters
+        newname = newname.replace(/[\\/:*?"<>|#]/g, '');
+        await outputFolder.renameEntry(newFile, newname, { overwrite: true });
+        return newFile;
+    }
+
 
     async function process() {
         core.executeAsModal(async () => {
             try {
                 console.log("Processing");
-                console.log(constants.AnchorPosition);
+
                 for (let i = 0; i < data.length; i++) {
                     const element = data[i];
-                    //copy the template to the output folder
-                    await template.copyTo(outputFolder, { overwrite: true });
-                    //renamethe file
-                    const newFile = await outputFolder.getEntry(template.name);
-                    let newname;
-                    if (element['filename']) {
-                        newname = `${element["filename"]}${suffix}.psd`;
-                    } else {
-                        newname = `${element[headers[0]]}${suffix}.psd`;
-                    }
-                    //stripping out illegal characters
-                    newname = newname.replace(/[\\/:*?"<>|#]/g, '');
-                    await outputFolder.renameEntry(newFile, newname, { overwrite: true });
+                    const newFile = await copyToFolder(element);
+                 //copy the template to the output folder
                     //open the file
                     const openedDocument = await app.open(newFile);
                     //  console.log(openedDocument);
