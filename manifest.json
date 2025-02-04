@@ -1,0 +1,105 @@
+{
+  "id": "com.ps.plugins.ps-csv-template",
+  "name": "Fill Template from CSV",
+  "version": "0.0.1",
+  "main": "index.html",
+  "host": {
+    "app": "PS",
+    "minVersion": "23.3.0"
+  },
+  "manifestVersion": 5,
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "pscsv",
+      "minimumSize": {
+        "width": 600,
+        "height": 800
+      },
+      "maximumSize": {
+        "width": 2000,
+        "height": 2000
+      },
+      "preferredDockedSize": {
+        "width": 600,
+        "height": 800
+      },
+      "preferredFloatingSize": {
+        "width": 600,
+        "height": 800
+      },
+      "label": {
+        "default": "Fill Template from CSV"
+      },
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "assets/icons/basedark.png",
+          "scale": [
+            1,
+            2
+          ],
+          "theme": [
+            "darkest",
+            "dark",
+            "medium"
+          ]
+        },
+        {
+          "width": 23,
+          "height": 23,
+          "path": "assets/icons/baselight.png",
+          "scale": [
+            1,
+            2
+          ],
+          "theme": [
+            "lightest",
+            "light",
+            "all"
+          ]
+        }
+      ]
+    }
+  ],
+  "icons": [
+    {
+      "width": 23,
+      "height": 23,
+      "path": "assets/icons/basedark.png",
+      "scale": [
+        1,
+        2
+      ],
+      "theme": [
+        "darkest",
+        "dark",
+        "medium"
+      ],
+      "species": [
+        "pluginList"
+      ]
+    },
+    {
+      "width": 23,
+      "height": 23,
+      "path": "assets/icons/baselight.png",
+      "scale": [
+        1,
+        2
+      ],
+      "theme": [
+        "lightest",
+        "light",
+        "all"
+      ],
+      "species": [
+        "pluginList"
+      ]
+    }
+  ],
+  "requiredPermissions": {
+    "localFileSystem": "request"
+  }
+}
