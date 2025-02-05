@@ -28,6 +28,20 @@
             <label>Suffix</label>
             <input class="dialog-input small-input" type="text" id="suffix" name="suffix" placeholder="_out">
         </p>
+        <p class="flex-row">
+            <label>Flatten Output Image</label>
+            <input class="dialog-input small-input" type="checkbox" id="flatten" name="flatten" >
+        </p>
+         <p>
+                <label>Save as</label>
+                <select id="fileformat">
+                 <option value="" selected >Choose Type</option>
+                    <option  value="psd">PSD</option>
+                    <option value="jpg">JPG</option>
+                    <option value="png">PNG</option>
+                </select>
+            </p>
+
         <p class="dialog-text blue">Process</p>
         <button type="button" class="dialog-button" id="process">Process</button>
 

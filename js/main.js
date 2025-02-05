@@ -1,3 +1,4 @@
+const { format } = require('path');
 
 
 try {
@@ -6,8 +7,50 @@ try {
     const fs2 = require("uxp").storage.localFileSystem;
     let headers, inputFolder, outputFolder, template, csvfile, data; // Function to open a PSD file programmatically
     let suffix = "";
-    function setupListeners() {
+    let flatten, fileformat;
+    const loadPreferences = async () => {
+        try {
+            const folder = await fs2.getDataFolder();
+            const file = await folder.getEntry("preferences.json");
+            const content = await file.read();
+            const preferences = JSON.parse(content);
+            document.getElementById("suffix").value = preferences.suffix || "";
+            document.getElementById("flatten").checked = preferences.flatten || false;
+            document.getElementById("fileformat").value = preferences.fileformat || "psd";
+        } catch (error) {
+            document.getElementById("suffix").value = "";
+            document.getElementById("flatten").checked = false;
+            document.getElementById("fileformat").value = "psd";
 
+            console.error("Error loading preferences:", error);
+        }
+    }
+
+    const savePreferences = async () => {
+        try {
+            const folder = await fs2.getDataFolder();
+            const file = await folder.createEntry("preferences.json", { overwrite: true });
+            const preferences = {
+                suffix: document.getElementById("suffix").value,
+                flatten: document.getElementById("flatten").checked,
+                fileformat: document.getElementById("fileformat").value
+
+            };
+            suffix = preferences.suffix;
+            flatten = preferences.flatten;
+            fileformat = preferences.fileformat;
+
+            await file.write(JSON.stringify(preferences));
+            console.log("Preferences saved:", preferences);
+        } catch (error) {
+            console.error("Error saving preferences:", error);
+        }
+    }
+
+
+
+    function setupListeners() {
+        document.addEventListener("DOMContentLoaded", loadPreferences);
         document.getElementById("process").addEventListener("click", async () => {
             try {
                 suffix = document.getElementById("suffix").value;
@@ -129,6 +172,7 @@ try {
     async function process() {
         core.executeAsModal(async () => {
             try {
+                savePreferences();
                 let inititalOrder = [];
                 console.log("Processing");
                 for (let i = 0; i < data.length; i++) {
@@ -156,84 +200,104 @@ try {
                     console.log(imageLayers);
                     //replace the images
                     for (let j = 0; j < imageLayers.length; j++) {
+                        let bail = false;
+                        console.log(` in loop ${j} and bail is ${bail}`);
                         const imageLayer = imageLayers[j];
                         const image = element[imageLayer.name];
+                       let imageFile, imageDoc;
                         if (image) {
-                            const imageFile = await inputFolder.getEntry(image);
-                            const imageDoc = await app.open(imageFile);
-                            await imageDoc.flatten();
-                            // await imageLayer.rasterize();
-                            const sourceAR = imageDoc.width / imageDoc.height;
-                            const destAR = imageLayer.bounds.width / imageLayer.bounds.height;
-                            let width, height;
-                            if (sourceAR > destAR) {
-                                width = imageLayer.bounds.width;
-                                height = imageLayer.bounds.width / sourceAR;
-                            } else {
-                                height = imageLayer.bounds.height;
-                                width = imageLayer.bounds.height * sourceAR;
-                            }
-                            await imageDoc.resizeImage(width, height);
-                            await imageDoc.layers[0].duplicate(openedDocument, constants.ElementPlacement.PLACEATEND, "replacement");
+                            try {
+                               console.log("in try",bail);
+                                imageFile = await inputFolder.getEntry(image);
+                                imageDoc = await app.open(imageFile);
+                            } catch (error) {
+                                console.error("Error opening image:", error);
+                                bail = true;
+                                // await app.showAlert(`Error opening image: ${image}. Skipping.`);
+                                console.log("in catch",bail);
+                            } finally {
+                                console.log("in finally",bail);
+                                if (!bail) {
+
+                                    console.log('after catch');
+                                    await imageDoc.flatten();
+                                    // await imageLayer.rasterize();
+                                    const sourceAR = imageDoc.width / imageDoc.height;
+                                    const destAR = imageLayer.bounds.width / imageLayer.bounds.height;
+                                    let width, height;
+                                    if (sourceAR > destAR) {
+                                        width = imageLayer.bounds.width;
+                                        height = imageLayer.bounds.width / sourceAR;
+                                    } else {
+                                        height = imageLayer.bounds.height;
+                                        width = imageLayer.bounds.height * sourceAR;
+                                    }
+                                    await imageDoc.resizeImage(width, height);
+                                    await imageDoc.layers[0].duplicate(openedDocument, constants.ElementPlacement.PLACEATEND, "replacement");
 
 
 
-                            const centerX = (imageLayer.bounds.left + imageLayer.bounds.right) / 2;
-                            const centerY = (imageLayer.bounds.top + imageLayer.bounds.bottom) / 2;
-                            const b = openedDocument.layers.getByName("replacement").bounds;
-                            let index;
-                            for (let k = 0; k < openedDocument.layers.length; k++) {
-                                //  console.log(`layer name is ${openedDocument.layers[k].name} and k is ${k} and length is ${openedDocument.layers.length}`);
-                                if (openedDocument.layers[k].name === "replacement") {
-                                    index = openedDocument.layers.length - 1 - k;
-                                    break;
+                                    const centerX = (imageLayer.bounds.left + imageLayer.bounds.right) / 2;
+                                    const centerY = (imageLayer.bounds.top + imageLayer.bounds.bottom) / 2;
+                                    const b = openedDocument.layers.getByName("replacement").bounds;
+                                    let index;
+                                    for (let k = 0; k < openedDocument.layers.length; k++) {
+                                        //  console.log(`layer name is ${openedDocument.layers[k].name} and k is ${k} and length is ${openedDocument.layers.length}`);
+                                        if (openedDocument.layers[k].name === "replacement") {
+                                            index = openedDocument.layers.length - 1 - k;
+                                            break;
+                                        }
+                                    }
+
+                                    app.activeDocument = openedDocument;
+                                    await action.batchPlay(
+                                        [
+
+
+                                            { "_obj": "select", "_target": [{ "_name": "replacement", "_ref": "layer" }], "makeVisible": false },
+                                            { "_obj": "move", "_target": [{ "_enum": "ordinal", "_ref": "layer" }], "to": { "_obj": "offset", "horizontal": { "_unit": "pixelsUnit", "_value": centerX - b.width / 2 }, "vertical": { "_unit": "pixelsUnit", "_value": centerY - b.height / 2 } } }
+                                        ], {});
+                                    await action.batchPlay(
+                                        [
+                                            { "_obj": "select", "_target": [{ "_name": imageLayer.name, "_ref": "layer" }], "makeVisible": false },
+                                            { "_obj": "duplicate", "_target": [{ "_ref": "layerEffects" }, { "_enum": "ordinal", "_ref": "layer" }], "to": { "_index": index, "_ref": "layer" } }
+                                        ], {});
+
+                                    const theName = imageLayer.name;
+                                    openedDocument.layers.getByName("replacement").move(imageLayer, constants.ElementPlacement.PLACEBEFORE);
+                                    if (imageLayer.isClippingMask) {
+                                        //  openedDocument.layers.getByName("replacement").isClippingMask = true;
+                                        await action.batchPlay(
+                                            [
+                                                {
+                                                    "_obj": "select",
+                                                    "_target": [
+                                                        {
+                                                            "_ref": "layer",
+                                                            "_name": "replacement"
+                                                        }
+                                                    ]
+                                                },
+                                                { "_obj": "groupEvent", "_target": [{ "_enum": "ordinal", "_ref": "layer" }] }
+                                            ], {});
+
+                                    }
+                                    //copy any layer mask
+                                    await action.batchPlay(
+                                        [
+                                            { "_obj": "make", "at": { "_ref": [{ "_enum": "channel", "_ref": "channel", "_value": "mask" }, { "_name": "replacement", "_ref": "layer" }] }, "duplicate": true, "new": { "_class": "channel" }, "using": { "_ref": [{ "_enum": "channel", "_ref": "channel", "_value": "mask" }, { "_name": imageLayer.name, "_ref": "layer" }] } }
+                                        ], {});
+
+                                    imageLayer.delete();
+                                    openedDocument.layers.getByName("replacement").name = theName;
+                                    //  openedDocument.layers.getByName(theName).move(openedDocument.layers[0], constants.ElementPlacement.PLACEBEFORE);
+                                    imageDoc.closeWithoutSaving();
+
+                                } else {
+                                    console.log(`Skipping image: ${image}`);
+                                    app.showAlert(`Error opening image: ${image}. Skipping.`);
                                 }
                             }
-
-                            app.activeDocument = openedDocument;
-                            await action.batchPlay(
-                                [
-
-                                  
-                                    { "_obj": "select", "_target": [{ "_name": "replacement", "_ref": "layer" }], "makeVisible": false },
-                                    { "_obj": "move", "_target": [{ "_enum": "ordinal", "_ref": "layer" }], "to": { "_obj": "offset", "horizontal": { "_unit": "pixelsUnit", "_value": centerX - b.width / 2 }, "vertical": { "_unit": "pixelsUnit", "_value": centerY - b.height / 2 } } }
-                                ], {});
-                            await action.batchPlay(
-                                [
-                                    { "_obj": "select", "_target": [{ "_name": imageLayer.name, "_ref": "layer" }], "makeVisible": false },
-                                    { "_obj": "duplicate", "_target": [{ "_ref": "layerEffects" }, { "_enum": "ordinal", "_ref": "layer" }], "to": { "_index": index, "_ref": "layer" } }
-                                ], {});
-
-                            const theName = imageLayer.name;
-                            openedDocument.layers.getByName("replacement").move(imageLayer, constants.ElementPlacement.PLACEBEFORE);
-                            if (imageLayer.isClippingMask) {
-                                //  openedDocument.layers.getByName("replacement").isClippingMask = true;
-                                await action.batchPlay(
-                                    [
-                                      {
-                                        "_obj": "select",
-                                        "_target": [
-                                            {
-                                                "_ref": "layer",
-                                                "_name": "replacement"
-                                            }
-                                        ]
-                                    },
-                                        { "_obj": "groupEvent", "_target": [{ "_enum": "ordinal", "_ref": "layer" }] }
-                                    ], {});
-
-                            }
-                            //copy any layer mask
-                            await action.batchPlay(
-                                [
-                                    { "_obj": "make", "at": { "_ref": [{ "_enum": "channel", "_ref": "channel", "_value": "mask" }, { "_name": "replacement", "_ref": "layer" }] }, "duplicate": true, "new": { "_class": "channel" }, "using": { "_ref": [{ "_enum": "channel", "_ref": "channel", "_value": "mask" }, { "_name": imageLayer.name, "_ref": "layer" }] } }
-                                ], {});
-
-                            imageLayer.delete();
-                            openedDocument.layers.getByName("replacement").name = theName;
-                            //  openedDocument.layers.getByName(theName).move(openedDocument.layers[0], constants.ElementPlacement.PLACEBEFORE);
-                            imageDoc.closeWithoutSaving();
-
                         }
                     }
                     //make sure the layers are in the same order
@@ -246,8 +310,35 @@ try {
                     }
 
                     inititalOrder = [];
-                    //save the file
-                    await openedDocument.save();
+                    try {   //save the file
+                        app.activeDocument = openedDocument;
+                        if (flatten) {
+                            await action.batchPlay(
+                                [
+                                    { "_obj": "flattenImage" }
+                                ], {});
+                        }
+                        await openedDocument.save();
+                        console.log(`File format is ${fileformat}`);
+                        if (fileformat === "jpg") {
+                            console.log("Saving as jpg");
+                            const newjpg = await outputFolder.createFile(`${openedDocument.name.replace(".psd", ".jpg")}`, { overwrite: true });
+                            await openedDocument.saveAs.jpg(newjpg, { quality: 12 }, true);
+                            const ent = await outputFolder.getEntry(openedDocument.name);
+                            ent.delete();
+
+
+                        } else if (fileformat === "png") {
+                            console.log("Saving as png");
+                            const newpng = await outputFolder.createFile(`${openedDocument.name.replace(".psd", ".png")}`, { overwrite: true });
+                            await openedDocument.saveAs.png(newpng, { compression: 6 }, true);
+                            const ent = await outputFolder.getEntry(openedDocument.name);
+                            ent.delete();
+                        }
+
+                    } catch (error) {
+                        console.error("Error saving file:", error);
+                    }
                     //close the file
                     await openedDocument.close();
                 }
@@ -266,6 +357,9 @@ try {
         headers = parseLine(lines[0]);
 
         for (let i = 1; i < lines.length; i++) {
+            if (lines[i].trim().length==0) {
+                continue;
+            }
             let row = parseLine(lines[i]);
             let obj = {};
 

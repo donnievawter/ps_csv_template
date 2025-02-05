@@ -1,6 +1,6 @@
 {
-  "id": "com.ps.plugins.ps-csv-template",
-  "name": "Fill Template from CSV",
+  "id": "com.psplugins.rinse.and.repeat",
+  "name": "Rinse and Repeat",
   "version": "0.0.1",
   "main": "index.html",
   "host": {
@@ -29,7 +29,7 @@
         "height": 800
       },
       "label": {
-        "default": "Fill Template from CSV"
+        "default": "Rinse and Repeat"
       },
       "icons": [
         {
