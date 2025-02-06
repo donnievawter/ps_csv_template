@@ -1,5 +1,3 @@
-const { format } = require('path');
-
 
 try {
     const { app, core, action, constants } = require('photoshop');
@@ -169,6 +167,56 @@ try {
             }
         }
     }
+    sizeIt = async (element, imageDoc, imageLayer) => {
+        let theType = "fit";
+        console.log(`GETSIZE || ${element[imageLayer.name]} ||  ${element[imageLayer.name + "_type"]} ||`);
+        if (element[imageLayer.name + "_type"]) {
+            theType = element[imageLayer.name + "_type"];
+        }
+        if (!(theType === "distort") && !(theType === "crop")) {
+            theType = "fit";
+        }
+        const sourceAR = imageDoc.width / imageDoc.height;
+        const destAR = imageLayer.boundsNoEffects.width / imageLayer.boundsNoEffects.height;
+        let width, height;
+        if (theType === "distort") {
+            width = imageLayer.boundsNoEffects.width;
+            height = imageLayer.boundsNoEffects.height;
+            await imageDoc.resizeImage(width, height);
+            return;
+        } else if (theType === "crop") {
+            let trimwidth, trimheight;
+            if (sourceAR < destAR) {
+                width = imageLayer.boundsNoEffects.width;
+                trimwidth = 0
+                height = width / sourceAR
+                trimheight = (height - imageLayer.boundsNoEffects.height) / 2
+            } else {
+                height = imageLayer.boundsNoEffects.height;
+                trimheight = 0;
+                width = height * sourceAR;
+                trimwidth = (width - imageLayer.boundsNoEffects.width) / 2;
+            }
+            await imageDoc.resizeImage(width, height);
+            let anchor = constants.AnchorPosition.MIDDLECENTER;
+            let x = element[imageLayer.name + "_anchor"];
+            if (Object.values(constants.AnchorPosition).includes(x)) {
+                anchor = x;
+            }
+            await imageDoc.resizeCanvas(imageLayer.boundsNoEffects.width, imageLayer.boundsNoEffects.height, anchor);
+            return;
+        } else {
+            if (sourceAR > destAR) {
+                width = imageLayer.bounds.width;
+                height = imageLayer.bounds.width / sourceAR;
+            } else {
+                height = imageLayer.bounds.height;
+                width = imageLayer.bounds.height * sourceAR;
+            }
+            await imageDoc.resizeImage(width, height);
+            return;
+        }
+    }
     async function process() {
         core.executeAsModal(async () => {
             try {
@@ -188,7 +236,7 @@ try {
                     //get the layers
                     const layers = openedDocument.layers;
                     //get the text layers
-                    console.log('At Start');
+
                     for (let k = 0; k < openedDocument.layers.length; k++) {
                         //  console.log(`layer name is ${openedDocument.layers[k].name} and k is ${k} and length is ${openedDocument.layers.length}`);
                         inititalOrder.push(openedDocument.layers[k].name);
@@ -197,46 +245,26 @@ try {
                     fixTextLayers(element, layers);
                     //get the image layers
                     const imageLayers = layers.filter(layer => (layer.kind === constants.LayerKind.SMARTOBJECT) || (layer.kind === constants.LayerKind.NORMAL));
-                    console.log(imageLayers);
                     //replace the images
                     for (let j = 0; j < imageLayers.length; j++) {
                         let bail = false;
-                        console.log(` in loop ${j} and bail is ${bail}`);
                         const imageLayer = imageLayers[j];
                         const image = element[imageLayer.name];
-                       let imageFile, imageDoc;
+                        let imageFile, imageDoc;
                         if (image) {
                             try {
-                               console.log("in try",bail);
                                 imageFile = await inputFolder.getEntry(image);
                                 imageDoc = await app.open(imageFile);
                             } catch (error) {
                                 console.error("Error opening image:", error);
                                 bail = true;
                                 // await app.showAlert(`Error opening image: ${image}. Skipping.`);
-                                console.log("in catch",bail);
                             } finally {
-                                console.log("in finally",bail);
                                 if (!bail) {
 
-                                    console.log('after catch');
                                     await imageDoc.flatten();
-                                    // await imageLayer.rasterize();
-                                    const sourceAR = imageDoc.width / imageDoc.height;
-                                    const destAR = imageLayer.bounds.width / imageLayer.bounds.height;
-                                    let width, height;
-                                    if (sourceAR > destAR) {
-                                        width = imageLayer.bounds.width;
-                                        height = imageLayer.bounds.width / sourceAR;
-                                    } else {
-                                        height = imageLayer.bounds.height;
-                                        width = imageLayer.bounds.height * sourceAR;
-                                    }
-                                    await imageDoc.resizeImage(width, height);
+                                    await sizeIt(element, imageDoc, imageLayer);
                                     await imageDoc.layers[0].duplicate(openedDocument, constants.ElementPlacement.PLACEATEND, "replacement");
-
-
-
                                     const centerX = (imageLayer.bounds.left + imageLayer.bounds.right) / 2;
                                     const centerY = (imageLayer.bounds.top + imageLayer.bounds.bottom) / 2;
                                     const b = openedDocument.layers.getByName("replacement").bounds;
@@ -252,8 +280,6 @@ try {
                                     app.activeDocument = openedDocument;
                                     await action.batchPlay(
                                         [
-
-
                                             { "_obj": "select", "_target": [{ "_name": "replacement", "_ref": "layer" }], "makeVisible": false },
                                             { "_obj": "move", "_target": [{ "_enum": "ordinal", "_ref": "layer" }], "to": { "_obj": "offset", "horizontal": { "_unit": "pixelsUnit", "_value": centerX - b.width / 2 }, "vertical": { "_unit": "pixelsUnit", "_value": centerY - b.height / 2 } } }
                                         ], {});
@@ -262,7 +288,6 @@ try {
                                             { "_obj": "select", "_target": [{ "_name": imageLayer.name, "_ref": "layer" }], "makeVisible": false },
                                             { "_obj": "duplicate", "_target": [{ "_ref": "layerEffects" }, { "_enum": "ordinal", "_ref": "layer" }], "to": { "_index": index, "_ref": "layer" } }
                                         ], {});
-
                                     const theName = imageLayer.name;
                                     openedDocument.layers.getByName("replacement").move(imageLayer, constants.ElementPlacement.PLACEBEFORE);
                                     if (imageLayer.isClippingMask) {
@@ -280,19 +305,16 @@ try {
                                                 },
                                                 { "_obj": "groupEvent", "_target": [{ "_enum": "ordinal", "_ref": "layer" }] }
                                             ], {});
-
                                     }
                                     //copy any layer mask
                                     await action.batchPlay(
                                         [
                                             { "_obj": "make", "at": { "_ref": [{ "_enum": "channel", "_ref": "channel", "_value": "mask" }, { "_name": "replacement", "_ref": "layer" }] }, "duplicate": true, "new": { "_class": "channel" }, "using": { "_ref": [{ "_enum": "channel", "_ref": "channel", "_value": "mask" }, { "_name": imageLayer.name, "_ref": "layer" }] } }
                                         ], {});
-
                                     imageLayer.delete();
                                     openedDocument.layers.getByName("replacement").name = theName;
                                     //  openedDocument.layers.getByName(theName).move(openedDocument.layers[0], constants.ElementPlacement.PLACEBEFORE);
                                     imageDoc.closeWithoutSaving();
-
                                 } else {
                                     console.log(`Skipping image: ${image}`);
                                     app.showAlert(`Error opening image: ${image}. Skipping.`);
@@ -308,7 +330,6 @@ try {
                         openedDocument.layers.getByName(inititalOrder[k]).move(refLayer, constants.ElementPlacement.PLACEAFTER);
                         refLayer = openedDocument.layers.getByName(inititalOrder[k]);
                     }
-
                     inititalOrder = [];
                     try {   //save the file
                         app.activeDocument = openedDocument;
@@ -326,8 +347,6 @@ try {
                             await openedDocument.saveAs.jpg(newjpg, { quality: 12 }, true);
                             const ent = await outputFolder.getEntry(openedDocument.name);
                             ent.delete();
-
-
                         } else if (fileformat === "png") {
                             console.log("Saving as png");
                             const newpng = await outputFolder.createFile(`${openedDocument.name.replace(".psd", ".png")}`, { overwrite: true });
@@ -335,7 +354,6 @@ try {
                             const ent = await outputFolder.getEntry(openedDocument.name);
                             ent.delete();
                         }
-
                     } catch (error) {
                         console.error("Error saving file:", error);
                     }
@@ -357,7 +375,7 @@ try {
         headers = parseLine(lines[0]);
 
         for (let i = 1; i < lines.length; i++) {
-            if (lines[i].trim().length==0) {
+            if (lines[i].trim().length == 0) {
                 continue;
             }
             let row = parseLine(lines[i]);
