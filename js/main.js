@@ -6,15 +6,27 @@ try {
     let headers, inputFolder, outputFolder, template, csvfile, data; // Function to open a PSD file programmatically
     let suffix = "";
     let flatten, fileformat;
+    let templateName, templatePath, csvfileName, csvfilePath, outputfolderName, outputfolderPath, inputfolderName, inputfolderPath;
+
     const loadPreferences = async () => {
         try {
             const folder = await fs2.getDataFolder();
             const file = await folder.getEntry("preferences.json");
             const content = await file.read();
             const preferences = JSON.parse(content);
+            console.log("Preferences loaded:", preferences);
             document.getElementById("suffix").value = preferences.suffix || "";
             document.getElementById("flatten").checked = preferences.flatten || false;
             document.getElementById("fileformat").value = preferences.fileformat || "psd";
+            templateName = preferences.templateName;
+            templatePath = preferences.templatePath;
+            csvfileName = preferences.csvfileName;
+            csvfilePath = preferences.csvfilePath;
+            outputfolderName = preferences.outputfolderName;
+            outputfolderPath = preferences.outputfolderPath;
+            inputfolderName = preferences.inputfolderName;
+            inputfolderPath = preferences.inputfolderPath;
+
         } catch (error) {
             document.getElementById("suffix").value = "";
             document.getElementById("flatten").checked = false;
@@ -31,12 +43,29 @@ try {
             const preferences = {
                 suffix: document.getElementById("suffix").value,
                 flatten: document.getElementById("flatten").checked,
-                fileformat: document.getElementById("fileformat").value
+                fileformat: document.getElementById("fileformat").value,
+                templateName: template ? template.name : "",
+                templatePath: template ? template.nativePath : "",
+                csvfileName: csvfileName ? csvfile.name : "",
+                csvfilePath: csvfile ? csvfile.nativePath : "",
+                outputfolderName: outputFolder ? outputFolder.name : "",
+                outputfolderPath: outputFolder ? outputFolder.nativePath : "",
+                inputfolderName: inputFolder ? inputFolder.name : "",
+                inputfolderPath: inputFolder ? inputFolder.nativePath : ""
+
 
             };
             suffix = preferences.suffix;
             flatten = preferences.flatten;
             fileformat = preferences.fileformat;
+            templateName = preferences.templateName;
+            templatePath = preferences.templatePath;
+            csvfileName = preferences.csvfileName;
+            csvfilePath = preferences.csvfilePath;
+            outputfolderName = preferences.outputfolderName;
+            outputfolderPath = preferences.outputfolderPath;
+            inputfolderName = preferences.inputfolderName;
+            inputfolderPath = preferences.inputfolderPath;
 
             await file.write(JSON.stringify(preferences));
             console.log("Preferences saved:", preferences);
@@ -66,7 +95,8 @@ try {
         document.getElementById("loadtemplate").addEventListener("click", async () => {
             try {
                 await core.executeAsModal(async () => {  // Open a file given entry
-                    template = await fs2.getFileForOpening();
+                    template = await fs2.getFileForOpening({ initialLocation: templatePath });
+                    console.log("template", template);
 
 
 
@@ -80,8 +110,8 @@ try {
         document.getElementById("chooseoutput").addEventListener("click", async () => {
             try {
                 await core.executeAsModal(async () => {  // Open a file given entry
-                    outputFolder = await fs2.getFolder();
-                    console.log(outputFolder);
+                    outputFolder = await fs2.getFolder({ initialLocation: outputfolderPath });
+                    console.log("outputfolder", outputFolder);
                     document.getElementById("outputname").textContent = ` outputFolder: ${outputFolder.name} path: ${outputFolder.nativePath}`;
                     document.getElementById("outputname").style.display = "block";
                 }, {});
@@ -94,8 +124,8 @@ try {
         document.getElementById("chooseinput").addEventListener("click", async () => {
             try {
                 await core.executeAsModal(async () => {  // Open a file given entry
-                    inputFolder = await fs2.getFolder();
-                    console.log(inputFolder);
+                    inputFolder = await fs2.getFolder({ initialLocation: inputfolderPath });
+                    console.log("inputfolder", inputFolder);
                     document.getElementById("inputname").textContent = ` inputFolder: ${inputFolder.name} path: ${inputFolder.nativePath}`;
                     document.getElementById("inputname").style.display = "block";
                 }, {});
@@ -111,14 +141,15 @@ try {
                 await core.executeAsModal(async () => {  // Open a file given entry
 
                     // Get the object of a File instance
-                    csvfile = await fs2.getFileForOpening();
+                    csvfile = await fs2.getFileForOpening({ initialLocation: csvfilePath });
                     console.log(csvfile);
                     document.getElementById("csvname").textContent = ` CSVFile: ${csvfile.name} `;
                     document.getElementById("csvname").style.display = "block";
                     const text = await csvfile.read({ encoding: "utf-8" });
                     console.log(text);
                     data = parseCSV(text);
-                    console.log(data);
+                    console.log(data[0]);
+                    console.log(data[1]);
 
                 }, {});
             } catch (error) {
@@ -157,64 +188,77 @@ try {
     }
     const fixTextLayers = (element, layers) => {
         const textLayers = layers.filter(layer => layer.kind === constants.LayerKind.TEXT);
-        console.log(textLayers);
+        //  console.log(textLayers);
         //replace the text
         for (let j = 0; j < textLayers.length; j++) {
             const textLayer = textLayers[j];
+            const name = textLayer.name;
             const text = element[textLayer.name];
-            if (text) {
+           
+            if ((typeof (text)==="string")&&(text.length > 0)) {
                 textLayer.textItem.contents = text;
+                //we don't want to change the name of the layer
+                textLayer.name = name;
+            } else {
+            console.log(`empty text for ${textLayer.name}`);
+                textLayer.textItem.contents = " ";
+                textLayer.name = name;
             }
         }
     }
     sizeIt = async (element, imageDoc, imageLayer) => {
-        let theType = "fit";
-        console.log(`GETSIZE || ${element[imageLayer.name]} ||  ${element[imageLayer.name + "_type"]} ||`);
-        if (element[imageLayer.name + "_type"]) {
-            theType = element[imageLayer.name + "_type"];
-        }
-        if (!(theType === "distort") && !(theType === "crop")) {
-            theType = "fit";
-        }
-        const sourceAR = imageDoc.width / imageDoc.height;
-        const destAR = imageLayer.boundsNoEffects.width / imageLayer.boundsNoEffects.height;
-        let width, height;
-        if (theType === "distort") {
-            width = imageLayer.boundsNoEffects.width;
-            height = imageLayer.boundsNoEffects.height;
-            await imageDoc.resizeImage(width, height);
-            return;
-        } else if (theType === "crop") {
-            let trimwidth, trimheight;
-            if (sourceAR < destAR) {
+        try {
+            let theType = "fit";
+            console.log(`GETSIZE || ${element[imageLayer.name]} ||  ${element[imageLayer.name + "_type"]} ||`);
+            if (element[imageLayer.name + "_type"]) {
+                theType = element[imageLayer.name + "_type"];
+            }
+            if (!(theType === "distort") && !(theType === "crop")) {
+                theType = "fit";
+            }
+            const sourceAR = imageDoc.width / imageDoc.height;
+            const destAR = imageLayer.boundsNoEffects.width / imageLayer.boundsNoEffects.height;
+            let width, height;
+            if (theType === "distort") {
                 width = imageLayer.boundsNoEffects.width;
-                trimwidth = 0
-                height = width / sourceAR
-                trimheight = (height - imageLayer.boundsNoEffects.height) / 2
-            } else {
                 height = imageLayer.boundsNoEffects.height;
-                trimheight = 0;
-                width = height * sourceAR;
-                trimwidth = (width - imageLayer.boundsNoEffects.width) / 2;
-            }
-            await imageDoc.resizeImage(width, height);
-            let anchor = constants.AnchorPosition.MIDDLECENTER;
-            let x = element[imageLayer.name + "_anchor"];
-            if (Object.values(constants.AnchorPosition).includes(x)) {
-                anchor = x;
-            }
-            await imageDoc.resizeCanvas(imageLayer.boundsNoEffects.width, imageLayer.boundsNoEffects.height, anchor);
-            return;
-        } else {
-            if (sourceAR > destAR) {
-                width = imageLayer.bounds.width;
-                height = imageLayer.bounds.width / sourceAR;
+                await imageDoc.resizeImage(width, height);
+                return;
+            } else if (theType === "crop") {
+                let trimwidth, trimheight;
+                if (sourceAR < destAR) {
+                    width = imageLayer.boundsNoEffects.width;
+                    trimwidth = 0
+                    height = width / sourceAR
+                    trimheight = (height - imageLayer.boundsNoEffects.height) / 2
+                } else {
+                    height = imageLayer.boundsNoEffects.height;
+                    trimheight = 0;
+                    width = height * sourceAR;
+                    trimwidth = (width - imageLayer.boundsNoEffects.width) / 2;
+                }
+                await imageDoc.resizeImage(width, height);
+                let anchor = constants.AnchorPosition.MIDDLECENTER;
+                let x = element[imageLayer.name + "_anchor"];
+                if (Object.values(constants.AnchorPosition).includes(x)) {
+                    anchor = x;
+                }
+                await imageDoc.revealAll();
+                await imageDoc.resizeCanvas(imageLayer.boundsNoEffects.width, imageLayer.boundsNoEffects.height, anchor);
+                return;
             } else {
-                height = imageLayer.bounds.height;
-                width = imageLayer.bounds.height * sourceAR;
+                if (sourceAR > destAR) {
+                    width = imageLayer.bounds.width;
+                    height = imageLayer.bounds.width / sourceAR;
+                } else {
+                    height = imageLayer.bounds.height;
+                    width = imageLayer.bounds.height * sourceAR;
+                }
+                await imageDoc.resizeImage(width, height);
+                return;
             }
-            await imageDoc.resizeImage(width, height);
-            return;
+        } catch (error) {
+            console.error("Error in sizeIt:", error);
         }
     }
     async function process() {
@@ -241,7 +285,7 @@ try {
                         //  console.log(`layer name is ${openedDocument.layers[k].name} and k is ${k} and length is ${openedDocument.layers.length}`);
                         inititalOrder.push(openedDocument.layers[k].name);
                     }
-
+                    console.log(inititalOrder);
                     fixTextLayers(element, layers);
                     //get the image layers
                     const imageLayers = layers.filter(layer => (layer.kind === constants.LayerKind.SMARTOBJECT) || (layer.kind === constants.LayerKind.NORMAL));
@@ -325,10 +369,15 @@ try {
                     //make sure the layers are in the same order
                     openedDocument.layers.getByName(inititalOrder[0]).move(openedDocument.layers[0], constants.ElementPlacement.PLACEBEFORE);
                     let refLayer = openedDocument.layers.getByName(inititalOrder[0]);
+                    // console.log("0",refLayer);
+                    //  console.log("0",refLayer.name);
                     for (let k = 1; k < inititalOrder.length; k++) {
-                        console.log(`Moving ${openedDocument.layers.getByName(inititalOrder[k])} below ${refLayer}`);
+                        // console.log(k);
+                        //   console.log(`${inititalOrder[k]}:  Moving ${openedDocument.layers.getByName(inititalOrder[k]).name} below ${refLayer.name}`);
                         openedDocument.layers.getByName(inititalOrder[k]).move(refLayer, constants.ElementPlacement.PLACEAFTER);
                         refLayer = openedDocument.layers.getByName(inititalOrder[k]);
+                        //   console.log(k,refLayer);
+                        //  console.log(k,refLayer.name);
                     }
                     inititalOrder = [];
                     try {   //save the file
