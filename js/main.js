@@ -194,13 +194,13 @@ try {
             const textLayer = textLayers[j];
             const name = textLayer.name;
             const text = element[textLayer.name];
-           
-            if ((typeof (text)==="string")&&(text.length > 0)) {
+
+            if ((typeof (text) === "string") && (text.length > 0)) {
                 textLayer.textItem.contents = text;
                 //we don't want to change the name of the layer
                 textLayer.name = name;
             } else {
-            console.log(`empty text for ${textLayer.name}`);
+                console.log(`empty text for ${textLayer.name}`);
                 textLayer.textItem.contents = " ";
                 textLayer.name = name;
             }
@@ -364,6 +364,8 @@ try {
                                     app.showAlert(`Error opening image: ${image}. Skipping.`);
                                 }
                             }
+                        } else {
+                            imageLayer.visible = false;
                         }
                     }
                     //make sure the layers are in the same order
