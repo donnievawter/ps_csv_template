@@ -295,7 +295,7 @@ try {
                         const imageLayer = imageLayers[j];
                         const image = element[imageLayer.name];
                         let imageFile, imageDoc;
-                        if (image) {
+                        if (image && image.length > 0) {
                             try {
                                 imageFile = await inputFolder.getEntry(image);
                                 imageDoc = await app.open(imageFile);
@@ -364,7 +364,7 @@ try {
                                     app.showAlert(`Error opening image: ${image}. Skipping.`);
                                 }
                             }
-                        } else {
+                        } else if(image && image.length === 0) {
                             imageLayer.visible = false;
                         }
                     }
